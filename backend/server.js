@@ -6,17 +6,18 @@ const queryRoutes = require("./routes/queryRoutes");
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST"],
+  }),
+);
 app.use(express.json());
 
 app.use("/api", uploadRoutes);
 app.use("/api", queryRoutes);
 
-app.get("/", (req, res) => {
-  res.send("Backend is running!");
-});
-
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

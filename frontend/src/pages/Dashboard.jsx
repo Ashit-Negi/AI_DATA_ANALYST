@@ -5,6 +5,7 @@ import ChartBox from "../components/ChartBox";
 import Summary from "../components/Summary";
 import SuggestionChips from "../components/SuggestionChips";
 import DownloadReport from "../components/DownloadReport";
+import BASE_URL from "../config";
 
 function Dashboard() {
   const [chartType, setChartType] = useState("bar");
@@ -95,7 +96,7 @@ function Dashboard() {
     setMessages((prev) => [...prev, { text: "Thinking...", sender: "ai" }]);
 
     try {
-      const res = await fetch("http://localhost:5000/api/query", {
+      const res = await fetch(`${BASE_URL}/api/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -118,8 +119,7 @@ function Dashboard() {
             ...updated,
             {
               text:
-                result.answer ||
-                " Cannot analyze this data. Try CSV or Excel.",
+                result.answer || " Cannot analyze this data. Try CSV or Excel.",
               sender: "ai",
             },
           ];
@@ -250,7 +250,7 @@ function Dashboard() {
                 </div>
               ) : (
                 <div className="text-slate-400 text-center mt-20">
-                   No chart data available
+                  No chart data available
                 </div>
               )}
             </div>
