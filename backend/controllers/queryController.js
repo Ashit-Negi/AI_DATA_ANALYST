@@ -3,14 +3,14 @@ const axios = require("axios");
 let lastResult = null;
 let lastQuery = null;
 
-// 🔥 SAFE NUMBER
+// SAFE NUMBER
 function getNumber(val) {
   if (val === null || val === undefined) return NaN;
   const num = parseFloat(String(val).replace(/[^0-9.-]+/g, ""));
   return isNaN(num) ? NaN : num;
 }
 
-// 🔥 FIND BEST MATCH
+// FIND BEST MATCH
 function findBestMatch(target, columns) {
   if (!target) return null;
 
@@ -20,11 +20,11 @@ function findBestMatch(target, columns) {
     (col) =>
       col.toLowerCase() === target ||
       col.toLowerCase().includes(target) ||
-      target.includes(col.toLowerCase()),
+      target.includes(col.toLowerCase())
   );
 }
 
-// 🔥 INSIGHTS
+// INSIGHTS
 function generateInsights(raw) {
   if (!raw.length) return "No insights available";
 
@@ -34,7 +34,7 @@ function generateInsights(raw) {
   return `Top is ${top[0]} with ${top[1]}. Total is ${total}.`;
 }
 
-// 🔥 AI FUNCTION
+// AI FUNCTION
 async function askAI(question, columns) {
   try {
     const res = await axios.post(
@@ -51,13 +51,6 @@ You are a data analyst AI.
 Available columns:
 ${columns.join(", ")}
 
-Step 1: Check if the user query is related to data analysis.
-
-If NOT related:
-Return:
-{ "invalid": true }
-
-If YES:
 Return STRICT JSON:
 {
   "invalid": false,
@@ -66,11 +59,7 @@ Return STRICT JSON:
   "metric": "column name",
   "limit": 5
 }
-
-Rules:
-- Only JSON
-- No explanation
-- Use ONLY given columns
+Only JSON. No explanation.
 `,
           },
           {
@@ -83,11 +72,10 @@ Rules:
         headers: {
           Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         },
-      },
+      }
     );
 
     let text = res.data.choices[0].message.content;
-
     text = text.replace(/```json|```/g, "").trim();
 
     return JSON.parse(text);
@@ -97,7 +85,7 @@ Rules:
   }
 }
 
-// 🔥 MAIN CONTROLLER
+// MAIN CONTROLLER
 exports.handleQuery = async (req, res) => {
   const { question, data } = req.body;
 
@@ -107,21 +95,37 @@ exports.handleQuery = async (req, res) => {
 
   const columns = Object.keys(data[0]);
 
-  // 🔥 TYPE DETECTION
   const numericColumns = columns.filter((col) =>
-    data.some((row) => !isNaN(getNumber(row[col]))),
+    data.some((row) => !isNaN(getNumber(row[col])))
   );
 
   const categoricalColumns = columns.filter(
-    (col) => !numericColumns.includes(col),
+    (col) => !numericColumns.includes(col)
   );
 
-  // 🔥 AI CALL
   const aiResult = await askAI(question, columns);
 
-  console.log("AI:", aiResult);
+  // 🔥 RULE FIXES
+  const q = question.toLowerCase();
 
-  // 🔥 INVALID QUERY CHECK
+  const matchTop = q.match(/top\s*(\d+)/);
+  if (matchTop) {
+    aiResult.operation = "group_by";
+    aiResult.limit = parseInt(matchTop[1]);
+  }
+
+  if (q.includes("total") || q.includes("sum")) {
+    aiResult.operation = "sum";
+  }
+
+  if (q.includes("lowest") || q.includes("minimum")) {
+    aiResult.operation = "min";
+  }
+
+  if ((q.includes("highest") || q.includes("top")) && !matchTop) {
+    aiResult.operation = "max";
+  }
+
   if (aiResult.invalid) {
     return res.json({
       answer: "⚠️ Please ask something related to your dataset",
@@ -131,12 +135,20 @@ exports.handleQuery = async (req, res) => {
   }
 
   let operation = aiResult.operation || "group_by";
-  let groupKey = findBestMatch(aiResult.groupBy, columns);
-  let metricKey = findBestMatch(aiResult.metric, columns);
 
-  // 🔥 FALLBACK
-  if (!groupKey) groupKey = categoricalColumns[0];
-  if (!metricKey) metricKey = numericColumns[0];
+  let groupKey =
+    findBestMatch(aiResult.groupBy, columns) ||
+    categoricalColumns.find((col) =>
+      q.includes(col.toLowerCase())
+    ) ||
+    categoricalColumns[0];
+
+  let metricKey =
+    findBestMatch(aiResult.metric, columns) ||
+    numericColumns.find((col) =>
+      q.includes(col.toLowerCase())
+    ) ||
+    numericColumns[0];
 
   if (!groupKey || !metricKey) {
     return res.json({
@@ -146,7 +158,24 @@ exports.handleQuery = async (req, res) => {
     });
   }
 
-  // 🔥 AGGREGATION
+  // 🔥 SUM
+  if (operation === "sum") {
+    let total = 0;
+
+    data.forEach((row) => {
+      const value = getNumber(row[metricKey]);
+      if (!isNaN(value)) total += value;
+    });
+
+    return res.json({
+      answer: `Total ${metricKey} is ${total}`,
+      raw: [["Total", total]],
+      chartType: "bar",
+      summary: [{ category: "Total", value: total }],
+    });
+  }
+
+  // AGGREGATION
   let result = {};
 
   data.forEach((row) => {
@@ -160,10 +189,9 @@ exports.handleQuery = async (req, res) => {
 
   let sorted = Object.entries(result);
 
-  // 🔥 CRITICAL SAFETY FIX
-  if (!sorted || sorted.length === 0) {
+  if (!sorted.length) {
     return res.json({
-      answer: "No usable numeric data found in dataset",
+      answer: "No usable data found",
       raw: [],
       chartType: "bar",
     });
@@ -173,70 +201,33 @@ exports.handleQuery = async (req, res) => {
   let answer = "";
   let chartType = "bar";
 
-  // 🔥 TREND
   if (operation === "trend") {
     chartType = "line";
-
-    if (!sorted.length) {
-      return res.json({
-        answer: "No trend data available",
-        raw: [],
-        chartType,
-      });
-    }
-
     raw = sorted;
     answer = generateInsights(raw);
-  }
-
-  // 🔥 MAX
-  else if (operation === "max") {
+  } else if (operation === "max") {
     sorted.sort((a, b) => b[1] - a[1]);
-
-    if (!sorted[0]) {
-      return res.json({
-        answer: "No valid data for analysis",
-        raw: [],
-        chartType,
-      });
-    }
-
     raw = [sorted[0]];
     answer = `Highest is ${sorted[0][0]} with ${sorted[0][1]}`;
-  }
-
-  // 🔥 MIN
-  else if (operation === "min") {
+  } else if (operation === "min") {
     sorted.sort((a, b) => a[1] - b[1]);
-
-    if (!sorted[0]) {
-      return res.json({
-        answer: "No valid data for analysis",
-        raw: [],
-        chartType,
-      });
-    }
-
     raw = [sorted[0]];
     answer = `Lowest is ${sorted[0][0]} with ${sorted[0][1]}`;
-  }
-
-  // 🔥 GROUP BY
-  else {
+  } else {
     sorted.sort((a, b) => b[1] - a[1]);
-
     raw = sorted.slice(0, aiResult.limit || 5);
-
-    if (!raw.length) {
-      return res.json({
-        answer: "No meaningful data found",
-        raw: [],
-        chartType,
-      });
-    }
-
-    answer = generateInsights(raw);
+    answer = `Top ${raw.length} ${groupKey} by ${metricKey}`;
   }
 
-  res.json({ answer, raw, chartType });
+  const formattedData = raw.map((item) => ({
+    category: item[0],
+    value: item[1],
+  }));
+
+  res.json({
+    answer,
+    raw,
+    chartType,
+    summary: formattedData,
+  });
 };

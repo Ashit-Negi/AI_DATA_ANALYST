@@ -10,6 +10,7 @@ import BASE_URL from "../config";
 function Dashboard() {
   const [chartType, setChartType] = useState("bar");
   const [summaryData, setSummaryData] = useState(null);
+  const [showSummary, setShowSummary] = useState(false);
   const [xLabel, setXLabel] = useState("");
   const [yLabel, setYLabel] = useState("");
   const [lastQuestion, setLastQuestion] = useState("");
@@ -26,7 +27,14 @@ function Dashboard() {
   const [chartData, setChartData] = useState([]);
   const [input, setInput] = useState("");
 
-  //  DEFAULT CHART
+  // 🔥 FIX: Reload issue (redirect if no state)
+  useEffect(() => {
+    if (!location.state) {
+      window.location.href = "/";
+    }
+  }, []);
+
+  // DEFAULT CHART
   useEffect(() => {
     if (!data?.data || data.data.length === 0) {
       setMessages([
@@ -42,7 +50,7 @@ function Dashboard() {
     const columns = Object.keys(rows[0]);
 
     const numericCol = columns.find((col) =>
-      rows.some((r) => !isNaN(Number(r[col]))),
+      rows.some((r) => !isNaN(Number(r[col])))
     );
 
     const categoryCol = columns.find((col) => typeof rows[0][col] === "string");
@@ -74,6 +82,14 @@ function Dashboard() {
     setXLabel(categoryCol);
     setYLabel(numericCol);
 
+
+    const formatted = Object.entries(result).map((item) => ({
+  category: item[0],
+  value: item[1],
+}));
+
+setSummaryData(formatted);
+
     setMessages([
       {
         text: `Showing ${numericCol} grouped by ${categoryCol}`,
@@ -82,7 +98,7 @@ function Dashboard() {
     ]);
   }, [data, fileName]);
 
-  //  SEND QUERY (FIXED)
+  // SEND QUERY (FIXED)
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -109,8 +125,13 @@ function Dashboard() {
 
       const result = await res.json();
 
-      //  MAIN FIX (IMPORTANT)
+      console.log("API RESULT:", result); // 🔥 debug
+
+      // 🔥 FIX: handle empty chart safely + set summary
       if (!result.raw || result.raw.length === 0) {
+        setChartData([]);
+        setSummaryData(result.summary || null);
+
         setMessages((prev) => {
           const updated = [...prev];
           updated.pop();
@@ -125,7 +146,6 @@ function Dashboard() {
           ];
         });
 
-        setChartData([]);
         return;
       }
 
@@ -134,6 +154,9 @@ function Dashboard() {
 
       setXLabel("Category");
       setYLabel("Value");
+
+      // 🔥 FIX: summary set
+      setSummaryData(result.summary || null);
 
       setMessages((prev) => {
         const updated = [...prev];
@@ -233,6 +256,37 @@ function Dashboard() {
         <div className="w-2/5 p-4 flex flex-col overflow-y-auto">
           <div className="bg-white/5 p-4 rounded-xl shadow-lg flex flex-col min-h-[400px]">
             <h2 className="text-lg font-semibold mb-2">Analysis</h2>
+            <div className="flex gap-2 mb-3">
+  <button
+    onClick={() => setChartType("bar")}
+    className={`px-3 py-1 rounded ${chartType === "bar" ? "bg-blue-600" : "bg-white/10"}`}
+  >
+    Bar
+  </button>
+
+  <button
+    onClick={() => setChartType("line")}
+    className={`px-3 py-1 rounded ${chartType === "line" ? "bg-blue-600" : "bg-white/10"}`}
+  >
+    Line
+  </button>
+
+  <button
+    onClick={() => setChartType("pie")}
+    className={`px-3 py-1 rounded ${chartType === "pie" ? "bg-blue-600" : "bg-white/10"}`}
+  >
+    Pie
+  </button>
+
+  <button
+  onClick={() => setShowSummary((prev) => !prev)}
+  className={`px-3 py-1 rounded ${
+    showSummary ? "bg-green-600" : "bg-white/10"
+  }`}
+>
+  {showSummary ? "Hide Summary" : "Show Summary"}
+</button>
+</div>
 
             <p className="text-xs text-slate-400 mb-2">
               X: {xLabel} | Y: {yLabel}
@@ -256,7 +310,7 @@ function Dashboard() {
             </div>
           </div>
 
-          {summaryData && <Summary data={summaryData} />}
+          {showSummary && summaryData && <Summary data={summaryData} />}
         </div>
       </div>
     </div>

@@ -3,37 +3,34 @@ import React, { useEffect, useState } from "react";
 function SuggestionChips({ onClick, data }) {
   const [suggestions, setSuggestions] = useState([]);
 
-  useEffect(() => {
-    if (!data || data.length === 0) return;
+ useEffect(() => {
+  if (!data || data.length === 0) return;
 
-    const columns = Object.keys(data[0]);
+  const columns = Object.keys(data[0]);
 
-    //  detect numeric column
-    const numericCol = columns.find((col) =>
-      data.some((row) => !isNaN(Number(row[col]))),
-    );
+  const numericCol = columns.find((col) =>
+    data.some((row) => !isNaN(Number(row[col])))
+  );
 
-    //  detect categorical column
-    const categoryCol = columns.find((col) => typeof data[0][col] === "string");
+  const categoryCol = columns.find(
+    (col) => typeof data[0][col] === "string"
+  );
 
-    const dynamicSuggestions = [];
+  const dynamicSuggestions = [];
 
-    if (categoryCol) {
-      dynamicSuggestions.push(`Top ${categoryCol}`);
-      dynamicSuggestions.push(`Highest ${categoryCol}`);
-    }
+  if (categoryCol && numericCol) {
+    dynamicSuggestions.push(`Top 5 ${categoryCol} by ${numericCol}`);
+    dynamicSuggestions.push(`Lowest ${numericCol} ${categoryCol}`);
+    dynamicSuggestions.push(`Show ${numericCol} distribution by ${categoryCol}`);
+    dynamicSuggestions.push(`Average ${numericCol} per ${categoryCol}`);
+  }
 
-    if (numericCol) {
-      dynamicSuggestions.push(`Highest ${numericCol}`);
-      dynamicSuggestions.push(`${numericCol} by ${categoryCol}`);
-    }
+  if (numericCol) {
+    dynamicSuggestions.push(`Total ${numericCol}`);
+  }
 
-    if (categoryCol && numericCol) {
-      dynamicSuggestions.push(`Show ${numericCol} by ${categoryCol}`);
-    }
-
-    setSuggestions(dynamicSuggestions);
-  }, [data]);
+  setSuggestions(dynamicSuggestions);
+}, [data]);
 
   return (
     <div className="flex flex-wrap gap-2 mt-2">
