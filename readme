@@ -1,0 +1,50 @@
+# AI Data Analyst Dashboard
+
+An AI-powered web application that allows users to upload datasets (CSV/Excel) and ask questions in natural language to get instant insights, summaries, and visualizations.
+
+---
+
+## Features
+
+- Upload CSV and Excel files
+- Ask questions in natural language (AI-powered)
+- Automatic chart generation (Bar, Line, Pie)
+- AI-generated insights and summaries
+- Download full analysis report (PDF)
+- Fast and interactive dashboard UI
+- Smart column detection (dynamic datasets)
+
+---
+
+## Note on PDF Support
+
+PDF support is limited due to unstructured data formats.
+
+For best results, use CSV or Excel files.
+
+---
+
+## Tech Stack
+
+### Frontend
+
+- React (Vite)
+- Tailwind CSS
+- Chart.js
+
+### Backend
+
+- Node.js
+- Express.js
+- Groq API (LLaMA 3)
+
+### Other Tools
+
+- Multer (file upload)
+- XLSX (Excel parsing)
+- csv-parser
+- jsPDF (report generation)
+
+---
+
+## Project Structure
