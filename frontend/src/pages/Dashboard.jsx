@@ -18,7 +18,13 @@ function Dashboard() {
 
   const location = useLocation();
   const fileName = location.state?.fileName;
-  const data = location.state?.data;
+ const storedData = JSON.parse(localStorage.getItem("data"));
+const data = location.state?.data || storedData;
+  useEffect(() => {
+  if (data) {
+    localStorage.setItem("data", JSON.stringify(data));
+  }
+}, [data]);
 
   const [messages, setMessages] = useState([
     { text: "Your dataset is ready! Ask something 📊", sender: "ai" },
@@ -27,12 +33,12 @@ function Dashboard() {
   const [chartData, setChartData] = useState([]);
   const [input, setInput] = useState("");
 
-  // 🔥 FIX: Reload issue (redirect if no state)
+  //  FIX: Reload issue (redirect if no state)
   useEffect(() => {
-    if (!location.state) {
-      window.location.href = "/";
-    }
-  }, []);
+  if (!location.state && !localStorage.getItem("data")) {
+    window.location.href = "/";
+  }
+}, []);
 
   // DEFAULT CHART
   useEffect(() => {
